@@ -1,0 +1,11 @@
+{
+  "name": "whyframe-color-analyzer",
+  "version": "1.0.0",
+  "description": "Module 01 of the Whyframe design reasoning engine",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

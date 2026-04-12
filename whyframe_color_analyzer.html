@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whyframe — Color Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <nav>
+    <div class="logo">why<span>frame</span></div>
+    <div class="nav-module">module 01 — color</div>
+  </nav>
+
+  <div class="wrap">
+    <div class="header">
+      <h1>Understand your palette.<br>Explain it to anyone.</h1>
+      <p>Build your palette and tell us about your project. We'll show you how it works as a system, where it might
+        fail, and what to try instead.</p>
+    </div>
+
+    <div id="input-section">
+      <!-- Card 1: Colors (Tabs) -->
+      <div class="ui-card">
+        <div class="tab-toggle" id="tab-toggle">
+          <button class="tab-btn active" data-tab="tab-manual">add colors manually</button>
+          <button class="tab-btn" data-tab="tab-image">extract from image</button>
+        </div>
+
+        <div id="tab-manual" class="tab-content active">
+          <div class="section-label" style="margin-top:24px;">colors</div>
+          <div id="colors-list">
+            <!-- Populated by JS -->
+          </div>
+          <button class="dashed-btn" id="add-color-btn" onclick="addColorRow()">+ add another color</button>
+        </div>
+
+        <div id="tab-image" class="tab-content" style="display:none;">
+          <div class="drop-zone" id="drop-zone">
+            <input type="file" id="file-input" accept="image/jpeg, image/png, image/webp" hidden>
+            <div id="drop-msg">drag & drop an image here<br>or click to browse</div>
+            <img id="image-preview" src="" alt="preview" style="display:none;">
+          </div>
+          <div class="error-msg" id="upload-error" style="margin-top:12px; margin-bottom:0; display:none;"></div>
+          <button class="dashed-btn" id="extract-btn" style="margin-top:16px; display:none;" onclick="extractColorsFromImage()">extract colors</button>
+          
+          <div id="extraction-results" style="display:none; margin-top:24px;">
+            <div class="section-label">extracted palette</div>
+            <div class="extracted-sub-label">Click a swatch to omit it from analysis.</div>
+            <div id="extracted-swatches-wrap" class="extracted-grid">
+              <!-- Swatches appended here -->
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+              <button class="action-btn" style="background:#1a1a1a; color:#fff; border:none; padding:12px; border-radius:8px; flex:1; cursor:pointer;" onclick="confirmExtraction()">use these colors</button>
+              <button class="dashed-btn" style="flex:1;" onclick="resetExtraction()">try another image</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Design Mode -->
+      <div class="ui-card">
+        <div class="section-label">design mode</div>
+        <div class="mode-toggle" id="mode-toggle">
+          <button class="mode-btn active" data-mode="light mode">light mode</button>
+          <button class="mode-btn" data-mode="dark mode">dark mode</button>
+          <button class="mode-btn" data-mode="both">both</button>
+        </div>
+      </div>
+
+      <!-- Card 3: Context -->
+      <div class="ui-card">
+        <div class="section-label">describe your project and mood</div>
+        <div class="textarea-wrap">
+          <textarea id="project-context" rows="3" maxlength="400"
+            placeholder="e.g. A fintech app for young adults. We want it to feel trustworthy but modern, not corporate. The mood is calm, focused, and slightly premium."></textarea>
+          <div class="char-count" id="char-count">0 / 400</div>
+        </div>
+      </div>
+
+      <!-- Action Card -->
+      <div class="action-wrap">
+        <div class="error-msg" id="error-msg"></div>
+        <button class="analyze-btn" id="analyze-btn" onclick="analyze()">analyze my palette →</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="loading-dots">
+        <div class="ld"></div>
+        <div class="ld"></div>
+        <div class="ld"></div>
+      </div>
+      <div class="loading-text" id="loading-text">// reasoning about your palette...</div>
+    </div>
+
+    <div class="results" id="results">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+
+  <footer>built during ship69 · <span>whyframe</span> · design reasoning engine</footer>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
