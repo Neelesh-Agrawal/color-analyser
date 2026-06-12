@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Module 01 of the Whyframe design reasoning engine",
   "scripts": {
-    "start": "npx serve ."
+    "start": "npx serve .",
+    "dev": "npx vercel dev"
   },
   "devDependencies": {
     "serve": "^14.2.1"

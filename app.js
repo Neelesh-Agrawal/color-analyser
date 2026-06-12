@@ -4,6 +4,44 @@ let designMode = "light mode";
 let colorCounter = 0;
 let inputMode = "manual"; // 'manual' | 'image'
 let uploadedImageSrc = null;
+let imageColorsReady = false;
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function parseAiJson(text) {
+  if (!text || typeof text !== "string") {
+    throw new SyntaxError("Empty AI response");
+  }
+  const clean = text.replace(/```json|```/gi, "").trim();
+  return JSON.parse(clean);
+}
+
+function normalizeAnalysis(parsed, colorCount) {
+  const overview = typeof parsed?.overview === "string" ? parsed.overview : "No overview provided.";
+  const harmony = typeof parsed?.harmony === "string" ? parsed.harmony : "No harmony notes provided.";
+  const colors = Array.isArray(parsed?.colors) ? parsed.colors : [];
+  const suggestions = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
+
+  while (colors.length < colorCount) {
+    colors.push({ analysis: "No analysis provided for this color." });
+  }
+
+  return {
+    overview,
+    harmony,
+    colors: colors.slice(0, colorCount),
+    suggestions: suggestions
+      .filter((s) => s && typeof s.hex === "string" && typeof s.replaces === "string")
+      .slice(0, 5)
+  };
+}
 
 const availableRoles = [
   "primary", "secondary", "background", "text",
@@ -24,12 +62,14 @@ function setupToggles() {
   const tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
+      const current = e.currentTarget;
       tabBtns.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      const target = e.target.getAttribute('data-tab');
+      current.classList.add('active');
+      const target = current.getAttribute('data-tab');
       document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
       document.getElementById(target).style.display = 'block';
       inputMode = target === 'tab-manual' ? 'manual' : 'image';
+      document.getElementById('error-msg').style.display = 'none';
     });
   });
 
@@ -37,9 +77,10 @@ function setupToggles() {
   const modeBtns = document.querySelectorAll('.mode-btn');
   modeBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
+      const current = e.currentTarget;
       modeBtns.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      designMode = e.target.getAttribute('data-mode');
+      current.classList.add('active');
+      designMode = current.getAttribute('data-mode');
     });
   });
 }
@@ -117,6 +158,8 @@ function setupDragAndDrop() {
 
 function handleImageUpload(file) {
   document.getElementById('upload-error').style.display = 'none';
+  imageColorsReady = false;
+  extractedState = [];
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     return showUploadError("Please upload a JPG, PNG, or WEBP.");
   }
@@ -201,6 +244,7 @@ function extractColorsFromImage() {
           const d = getEvDist(p, c.center);
           if (d < minDist) { minDist = d; minC = c; }
         }
+        if (!minC) continue;
         minC.pixels.push(p);
         minC.t[0] += p.r; minC.t[1] += p.g; minC.t[2] += p.b;
       }
@@ -247,6 +291,7 @@ let extractedState = [];
 function renderExtractedSwatches(hexes) {
   document.getElementById('extract-btn').style.display = 'none';
   document.getElementById('extraction-results').style.display = 'block';
+  imageColorsReady = true;
 
   extractedState = hexes.map((hex, i) => ({ hex, role: availableRoles[i] || 'secondary', active: true }));
 
@@ -274,12 +319,14 @@ function toggleExtracted(idx, el) {
 
 function confirmExtraction() {
   const active = extractedState.filter(e => e.active);
-  if (active.length === 0) return alert("Select at least one color");
-  analyze(); // Call main analyze logic!
+  if (active.length === 0) return showError("Select at least one extracted color.");
+  analyze();
 }
 
 function resetExtraction() {
   uploadedImageSrc = null;
+  imageColorsReady = false;
+  extractedState = [];
   document.getElementById('image-preview').style.display = 'none';
   document.getElementById('drop-msg').style.display = 'block';
   document.getElementById('extract-btn').style.display = 'none';
@@ -386,7 +433,7 @@ function renderResults(data, colors, mode) {
       <div class="section-label">palette overview</div>
       <div class="overview-header">
         ${thumbHTML}
-        <div class="overview-text">${data.overview}</div>
+        <div class="overview-text">${escapeHtml(data.overview)}</div>
       </div>
     </div>
   `;
@@ -430,7 +477,7 @@ function renderResults(data, colors, mode) {
             <span class="cb-role">${c.role}</span>
           </div>
         </div>
-        <div class="analysis-text">${analysis}</div>
+        <div class="analysis-text">${escapeHtml(analysis)}</div>
         <div class="contrast-wrapper">${contrastHTML}</div>
         ${shadesHeader}
         <div class="shades-row" style="margin-top:0;">${shadesHTML}</div>
@@ -442,28 +489,30 @@ function renderResults(data, colors, mode) {
   const harmonyHTML = `
     <div class="ui-card">
       <div class="section-label">harmony & relationships</div>
-      <div class="overview-text">${data.harmony}</div>
+      <div class="overview-text">${escapeHtml(data.harmony)}</div>
     </div>
   `;
 
   // 5. Suggestions
-  const suggestionsHTML = data.suggestions.map((s, i) => `
-    <div class="suggestion-block" id="sug-${i}">
+  const suggestionsHTML = data.suggestions.length
+    ? data.suggestions.map((s, i) => `
+    <div class="suggestion-block" id="sug-${i}" data-hex="${escapeHtml(s.hex)}" data-replaces="${escapeHtml(s.replaces)}">
       <div class="suggestion-header">
-        <div class="sug-swatch" style="background:${s.hex}"></div>
+        <div class="sug-swatch" style="background:${escapeHtml(s.hex)}"></div>
         <div>
-          <span class="sug-hex">${s.hex}</span>
-          <span class="sug-role">for ${s.replaces}</span>
+          <span class="sug-hex">${escapeHtml(s.hex)}</span>
+          <span class="sug-role">for ${escapeHtml(s.replaces)}</span>
         </div>
       </div>
-      <div class="sug-why">${s.why}</div>
+      <div class="sug-why">${escapeHtml(s.why || "")}</div>
       <div class="sug-actions">
-        <button class="btn-use" onclick="useSuggestion('${s.hex}', '${s.replaces}')">use this</button>
-        <button class="btn-try" onclick="regenerateSuggestion(${i}, '${s.replaces}')">try another</button>
-        <button class="btn-skip" onclick="skipSuggestion(${i})">skip</button>
+        <button class="btn-use" type="button">use this</button>
+        <button class="btn-try" type="button">try another</button>
+        <button class="btn-skip" type="button">skip</button>
       </div>
     </div>
-  `).join('');
+  `).join('')
+    : `<p class="overview-text">No suggestions returned for this palette.</p>`;
 
   resDiv.innerHTML = `
     <div class="palette-preview-bar">${previewHTML}</div>
@@ -478,10 +527,19 @@ function renderResults(data, colors, mode) {
       ${suggestionsHTML}
     </div>
     <div style="display:flex; justify-content:center; margin-top:24px;">
-      <button class="dashed-btn" style="flex:1; max-width: 300px; background:rgba(255,255,255,0.5);" onclick="resetApp()">analyze another palette</button>
+      <button class="dashed-btn" id="reset-app-btn" type="button" style="flex:1; max-width: 300px; background:rgba(255,255,255,0.5);">analyze another palette</button>
     </div>
   `;
   resDiv.style.display = 'block';
+
+  document.getElementById('reset-app-btn')?.addEventListener('click', resetApp);
+  resDiv.querySelectorAll('.suggestion-block').forEach((block, i) => {
+    const hex = block.dataset.hex;
+    const replaces = block.dataset.replaces;
+    block.querySelector('.btn-use')?.addEventListener('click', () => useSuggestion(hex, replaces));
+    block.querySelector('.btn-try')?.addEventListener('click', () => regenerateSuggestion(i, replaces));
+    block.querySelector('.btn-skip')?.addEventListener('click', () => skipSuggestion(i));
+  });
 }
 
 function showError(msg) {
@@ -495,6 +553,9 @@ async function analyze() {
   const context = document.getElementById('project-context').value.trim();
 
   // Validate
+  if (inputMode === 'image' && !imageColorsReady) {
+    return showError('Extract colors from your image first, then confirm the palette.');
+  }
   if (colors.length === 0) return showError('Add at least one color');
   const badHex = colors.find(c => !/^#[0-9A-Fa-f]{6}$/.test(c.hex));
   if (badHex) return showError('Please enter a valid hex color');
@@ -551,12 +612,14 @@ Return strict JSON only (no markdown formatting, no backticks). Structure:
     if (!res.ok) {
       if (res.status === 401) throw new Error('Invalid API key. Check your Groq key.');
       if (res.status === 429) throw new Error('Rate limit hit. Wait a moment and try again.');
+      if (res.status === 500 && data.error?.message?.includes('GROQ_API_KEY')) {
+        throw new Error('Server is not configured with a Groq API key.');
+      }
       throw new Error(data.error?.message || 'Connection failed. Check your internet and try again.');
     }
 
-    const text = data.choices[0].message.content;
-    const clean = text.replace(/```json|```/gi, '').trim();
-    const parsed = JSON.parse(clean);
+    const text = data?.choices?.[0]?.message?.content;
+    const parsed = normalizeAnalysis(parseAiJson(text), colors.length);
 
     document.getElementById('loading').style.display = 'none';
     renderResults(parsed, colors, designMode);
@@ -632,15 +695,20 @@ Return ONLY JSON: {"hex": "#value", "why": "1-2 sentence explanation"}`;
       })
     });
     const data = await res.json();
-    const clean = data.choices[0].message.content.replace(/```json|```/gi, '').trim();
-    const parsed = JSON.parse(clean);
+    if (!res.ok) {
+      throw new Error(data.error?.message || 'Could not regenerate suggestion.');
+    }
 
+    const parsed = parseAiJson(data?.choices?.[0]?.message?.content);
+    if (!parsed?.hex) throw new Error('Invalid suggestion response.');
+
+    el.dataset.hex = parsed.hex;
     el.querySelector('.sug-swatch').style.background = parsed.hex;
     el.querySelector('.sug-hex').textContent = parsed.hex;
-    el.querySelector('.sug-why').textContent = parsed.why;
+    el.querySelector('.sug-why').textContent = parsed.why || 'Alternative color suggestion.';
     el.querySelector('.btn-use').onclick = () => useSuggestion(parsed.hex, replacesRole);
   } catch (e) {
-    el.querySelector('.sug-why').textContent = 'Could not regenerate. Try again.';
+    el.querySelector('.sug-why').textContent = e.message || 'Could not regenerate. Try again.';
   }
 }
 
@@ -655,9 +723,16 @@ function copyShades(shadeStr, btn) {
   });
   svg += '</svg>';
 
-  navigator.clipboard.writeText(svg).then(() => {
+  const copy = navigator.clipboard?.writeText
+    ? navigator.clipboard.writeText(svg)
+    : Promise.reject(new Error('Clipboard unavailable'));
+
+  copy.then(() => {
     const orig = btn.textContent;
     btn.textContent = 'copied blocks!';
-    setTimeout(() => btn.textContent = orig, 2000);
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }).catch(() => {
+    btn.textContent = 'copy failed';
+    setTimeout(() => { btn.textContent = 'copy to figma'; }, 2000);
   });
 }
