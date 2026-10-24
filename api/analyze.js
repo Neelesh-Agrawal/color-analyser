@@ -1,4 +1,4 @@
-const ALLOWED_MODELS = new Set(["llama-3.3-70b-versatile"]);
+const ALLOWED_MODELS = new Set(["openai/gpt-oss-120b"]);
 const MAX_TOKENS = 2000;
 const MAX_MESSAGES = 10;
 const MAX_CONTENT_LENGTH = 12000;
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify({ model, messages, max_tokens: tokenLimit })
+      body: JSON.stringify({ model, messages, reasoning_effort: 'low', max_tokens: tokenLimit })
     });
 
     const data = await response.json();

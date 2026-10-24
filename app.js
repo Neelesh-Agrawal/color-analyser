@@ -599,7 +599,8 @@ Return strict JSON only (no markdown formatting, no backticks). Structure:
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
+        reasoning_effort: 'low',
         messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
         max_tokens: 1500
       }),
@@ -689,7 +690,8 @@ Return ONLY JSON: {"hex": "#value", "why": "1-2 sentence explanation"}`;
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
+        reasoning_effort: 'low',
         messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
         max_tokens: 300
       })
